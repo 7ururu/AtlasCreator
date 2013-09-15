@@ -12,11 +12,16 @@ public:
     ~QScene();
 
     void addSprite(QPixmap pixmap, QString id, QPointF pos);
-    QGraphicsSpriteItem* getActiveItem();
-    QVector < QGraphicsSpriteItem* > getItems() const;
-    QVector < QRectF > getFreeSpace() const;
-    void clear();
-    QRectF getAtlasBoundRect() const;
+    QGraphicsSpriteItem* getActiveItem() const;
+    QVector< QRect > getFreeSpace() const;
+    QRect getAtlasBoundRect() const;
+
+    QVector < QGraphicsSpriteItem* > items() const;
+
+    void changeAtlasSize(int w, int h);
+    void changeActiveSpritePosition(int dx, int dy);
+    void save();
+    void eraseActiveItem();
 
 protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent *event);
@@ -24,20 +29,15 @@ protected:
     void dropEvent(QGraphicsSceneDragDropEvent *event);
 
 private:
+    QVector < QGraphicsSpriteItem* > spriteItems;
     QGraphicsRectItem* atlasBound;
 
-    QVector < QGraphicsSpriteItem* > sprites;
-
-    void moveActiveSprite(int dx, int dy);
-
-public slots:
-    void findIntersections();
-    void changeItemsActivity();
-    void changeAtlasSize(int w, int h);
-    void changeActiveSpritePosition(int dx, int dy);
-    void save();
-    void eraseActiveItem();
+    void updateIntersections();
+    void updateItemsActivity();
     void calculateEfficiency();
+
+private slots:
+    void onItemsChange();
 
 signals:
     void efficiencyChanged(double e);

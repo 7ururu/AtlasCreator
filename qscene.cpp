@@ -11,75 +11,53 @@
 
 QScene::QScene(QObject *parent) : QGraphicsScene(parent)
 {
-    setBackgroundBrush(QBrush(QColor(224, 224, 224), Qt::Dense2Pattern));
+    setBackgroundBrush(QBrush(QColor(96, 96, 96), Qt::Dense2Pattern));
 
     atlasBound = addRect(0, 0, 1024, 1024);
 
-    connect(this, SIGNAL(changed(QList<QRectF>)), this, SLOT(findIntersections()));
-    connect(this, SIGNAL(changed(QList<QRectF>)), this, SLOT(changeItemsActivity()));
-
-    connect(this, SIGNAL(changed(QList<QRectF>)), this, SLOT(calculateEfficiency()));
-    connect(this, SIGNAL(changed(QList<QRectF>)), this, SLOT(calculateEfficiency()));
+    connect(this, SIGNAL(changed(QList<QRectF>)), this, SLOT(onItemsChange()));
 }
 
 QScene::~QScene()
 {
-    for (int i = 0; i < sprites.size(); i++)
-        delete sprites[i];
+    for (int i = 0; i < spriteItems.size(); i++)
+        delete spriteItems[i];
 }
 
 void QScene::addSprite(QPixmap pixmap, QString id, QPointF pos)
 {
-    QGraphicsSpriteItem* sprite = new QGraphicsSpriteItem(pixmap, id, atlasBound);
+    QGraphicsSpriteItem* sprite = new QGraphicsSpriteItem(pixmap, id);
     sprite->setPos(pos);
-
-    sprites.push_back(sprite);
     addItem(sprite);
+    spriteItems.push_back(sprite);
+    sprite->snap();
 }
 
-QGraphicsSpriteItem *QScene::getActiveItem()
+QGraphicsSpriteItem *QScene::getActiveItem() const
 {
-    for (int i = 0; i < sprites.size(); i++)
-        if (sprites[i]->isActiveItem())
-            return sprites[i];
+    for (int i = 0; i < spriteItems.size(); i++)
+        if (spriteItems[i]->hasFocus())
+            return spriteItems[i];
     return 0;
 }
 
-QVector<QGraphicsSpriteItem *> QScene::getItems() const
-{
-    return sprites;
-}
 
-QVector<QRectF> QScene::getFreeSpace() const
+QVector<QRect> QScene::getFreeSpace() const
 {
-    QVector < QRectF > res;
-    res.push_back(atlasBound->boundingRect());
-    /*for (int i = 0; i < sprites.size(); i++)
-    {
-        QVector < QRectF > next;
-        for (int j = 0; j < res.size(); j++)
-            if (res[j].intersects(QRectF(sprites[i]->pos(), sprites[i]->boundingRect().size())))
-            {
+    QVector < QRect > res;
+    res.push_back(atlasBound->boundingRect().toRect());
 
-            }
-    }*/
     return res;
 }
 
-void QScene::clear()
+QRect QScene::getAtlasBoundRect() const
 {
-    for (int i = 0; i < sprites.size(); i++)
-    {
-        removeItem(sprites[i]);
-        delete sprites[i];
-    }
-    sprites.clear();
-    update();
+    return atlasBound->boundingRect().toRect();
 }
 
-QRectF QScene::getAtlasBoundRect() const
+QVector<QGraphicsSpriteItem *> QScene::items() const
 {
-    return atlasBound->boundingRect();
+    return spriteItems;
 }
 
 void QScene::dragEnterEvent(QGraphicsSceneDragDropEvent *event)
@@ -112,14 +90,10 @@ void QScene::dropEvent(QGraphicsSceneDragDropEvent *event)
         QString id;
         dataStream >> pixmap >> id;
 
-        QGraphicsSpriteItem* sprite = new QGraphicsSpriteItem(pixmap, id, atlasBound);
-        sprites.push_back(sprite);
-        addItem(sprite);
-        sprite->setPos(event->scenePos().x() - pixmap.width() / 2, event->scenePos().y() - pixmap.height() / 2);
-        sprite->snapIt();
+        addSprite(pixmap, id, QPointF(event->scenePos().x() - pixmap.width() / 2, event->scenePos().y() - pixmap.height() / 2));
 
-        for (int i = 0; i < sprites.size(); i++)
-            sprites[i]->changeItemActivity(i == (sprites.size() - 1));
+        for (int i = 0; i < spriteItems.size(); i++)
+            spriteItems[i]->changeItemActivity(i == (spriteItems.size() - 1));
 
         event->setDropAction(Qt::MoveAction);
         event->accept();
@@ -128,36 +102,32 @@ void QScene::dropEvent(QGraphicsSceneDragDropEvent *event)
         event->ignore();
 }
 
-void QScene::findIntersections()
+void QScene::updateIntersections()
 {
-    for (int i = 0; i < sprites.size(); i++)
+    for (int i = 0; i < spriteItems.size(); i++)
     {
         bool flag = false;
-        for (int j = 0; j < sprites.size(); j++)
-            if (i != j && sprites[i]->collidesWithItem(sprites[j]))
+        for (int j = 0; j < spriteItems.size(); j++)
+            if (i != j && spriteItems[i]->collidesWithItem(spriteItems[j]))
             {
                 flag = true;
                 break;
             }
-        if (flag || !atlasBound->contains(sprites[i]->pos()) ||
-                    !atlasBound->contains(sprites[i]->pos() + sprites[i]->boundingRect().bottomRight()))
-            sprites[i]->setBoundingRectColor(Qt::red);
+        if (flag || !atlasBound->contains(spriteItems[i]->pos()) ||
+                    !atlasBound->contains(spriteItems[i]->pos() + spriteItems[i]->boundingRect().bottomRight()))
+        {
+            spriteItems[i]->setBoundingRectColor(Qt::red);
+        }
         else
-            sprites[i]->setBoundingRectColor(Qt::green);
+            spriteItems[i]->setBoundingRectColor(Qt::green);
     }
     update();
 }
 
-void QScene::changeItemsActivity()
+void QScene::updateItemsActivity()
 {
-    int i;
-    for (i = 0; i < sprites.size(); i++)
-        if (sprites[i]->isPressed())
-            break;
-    if (i == sprites.size())
-        return;
-    for (int j = 0; j < sprites.size(); j++)
-        sprites[j]->changeItemActivity(i == j);
+    for (int i = 0; i < spriteItems.size(); i++)
+        spriteItems[i]->changeItemActivity(spriteItems[i]->hasFocus());
     update();
 }
 
@@ -169,17 +139,17 @@ void QScene::changeAtlasSize(int w, int h)
 
 void QScene::changeActiveSpritePosition(int dx, int dy)
 {
-    for (int i = 0; i < sprites.size(); i++)
-        if (sprites[i]->isActiveItem())
+    for (int i = 0; i < spriteItems.size(); i++)
+        if (spriteItems[i]->hasFocus())
         {
-            sprites[i]->setPos(sprites[i]->x() + dx, sprites[i]->y() + dy);
-            sprites[i]->snapIt();
+            spriteItems[i]->setPos(spriteItems[i]->x() + dx, spriteItems[i]->y() + dy);
+            spriteItems[i]->snap();
         }
 }
 
 void QScene::save()
 {
-    static QString fileName;
+    /*static QString fileName;
     fileName = QFileDialog::getSaveFileName(0, "Choose file to save", fileName, tr("Image Files (*.png *.jpg *.bmp)"));
     if (fileName.size() == 0)
         return;
@@ -195,22 +165,34 @@ void QScene::save()
     for (int i = 0; i < sprites.size(); i++)
     {
         painter.drawPixmap(sprites[i]->x(), sprites[i]->y(), sprites[i]->getPixmap());
-        resultFile << sprites[i]->getId().toStdString() << " = Sprite(" << atlasName.toStdString() << ", CIwSVec2(" <<
-                      sprites[i]->x() << ", " <<  sprites[i]->y() << "), CIwSVec2(" <<
+        resultFile << sprites[i]->getId().toStdString() << " = Sprite(" << atlasName.toStdString() << ", CIwFVec2(" <<
+                      sprites[i]->x() << ", " <<  sprites[i]->y() << "), CIwFVec2(" <<
                       sprites[i]->getPixmap().width() << ", " << sprites[i]->getPixmap().height() << "));" << std::endl;
+        if (sprites[i]->getId().toStdString().find("[") == std::string::npos)
+        {
+            resultFile << "spriteFromString[\"" << sprites[i]->getId().toStdString() << "\"] = " <<
+                          sprites[i]->getId().toStdString() << ";" << std::endl;
+        }
     }
+    resultFile << std::endl << std::endl;
+    for (int i = 0; i < sprites.size(); i++)
+        if (sprites[i]->getId().toStdString().find("[") == std::string::npos)
+        {
+            resultFile << sprites[i]->getId().toStdString() << "," << std::endl;
+        }
+
     resultImage.save(fileName);
-    resultFile.close();
+    resultFile.close();*/
 }
 
 void QScene::eraseActiveItem()
 {
-    for (int i = 0; i < sprites.size(); i++)
-        if (sprites[i]->isActiveItem())
+    for (int i = 0; i < spriteItems.size(); i++)
+        if (spriteItems[i]->hasFocus())
         {
-            removeItem(sprites[i]);
-            delete sprites[i];
-            sprites.erase(&sprites[i]);
+            removeItem(spriteItems[i]);
+            delete spriteItems[i];
+            spriteItems.erase(&spriteItems[i]);
             break;
         }
     update();
@@ -218,10 +200,17 @@ void QScene::eraseActiveItem()
 
 void QScene::calculateEfficiency()
 {
-    QVector < QRectF > rects;
+    QVector < QRect > rects;
 
-    for (int i = 0; i < sprites.size(); i++)
-        rects.push_back(atlasBound->boundingRect().intersected(QRectF(sprites[i]->pos(), sprites[i]->boundingRect().size())));
+    for (int i = 0; i < spriteItems.size(); i++)
+        rects.push_back(atlasBound->boundingRect().intersected(QRectF(spriteItems[i]->pos(), spriteItems[i]->boundingRect().size())).toRect());
 
-    emit efficiencyChanged(Packing2D::calculateEfficiency(rects, atlasBound->boundingRect(), true));
+    emit efficiencyChanged(Packing2D::calculateEfficiency(rects, atlasBound->boundingRect().toRect(), true));
+}
+
+void QScene::onItemsChange()
+{
+    updateIntersections();
+    updateItemsActivity();
+    calculateEfficiency();
 }

@@ -3,25 +3,21 @@
 #include <QDrag>
 #include <QDragEnterEvent>
 #include <QMenu>
-#include "qgraphicsspriteitem.h"
 
 QSpritesListWidget::QSpritesListWidget(QWidget *parent) : QListWidget(parent)
 {
-    iconsSize = 64;
-
     setDragEnabled(true);
-    setViewMode(QListView::IconMode);
-    setIconSize(QSize(iconsSize, iconsSize));
-    setSpacing(8);
     setAcceptDrops(true);
     setDropIndicatorShown(true);
 
-    setContextMenuPolicy(Qt::DefaultContextMenu);
+    setViewMode(QListView::IconMode);
+    setIconSize(QSize(ICONS_SIZE, ICONS_SIZE));
+    setSpacing(ICONS_INDENT);
 
-    this->setStyleSheet("QListView {background-color: rgba(224, 224, 224, 255);}");
+    setContextMenuPolicy(Qt::DefaultContextMenu);
 }
 
-void QSpritesListWidget::addSprite(QPixmap pixmap, QString id)
+void QSpritesListWidget::addItem(QPixmap pixmap, QString id)
 {
     QListWidgetItem *sprite = new QListWidgetItem(this);
     sprite->setIcon(QIcon(pixmap));
@@ -30,29 +26,14 @@ void QSpritesListWidget::addSprite(QPixmap pixmap, QString id)
     sprite->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
 }
 
-QVector<QListWidgetItem *> QSpritesListWidget::getItems() const
-{
-    bool selected = !selectedItems().empty();
-    QVector < QListWidgetItem* > res;
-    for (int i = 0; i < count(); i++)
-    {
-        QListWidgetItem* tmp = item(i);
-        if (selected && !tmp->isSelected())
-            continue;
-        res.push_back(tmp);
-    }
-
-    return res;
-}
-
 void QSpritesListWidget::startDrag(Qt::DropActions supportedActions)
 {
     QListWidgetItem *item = currentItem();
-
     QByteArray itemData;
     QDataStream dataStream(&itemData, QIODevice::WriteOnly);
-    QPixmap pixmap = qVariantValue<QPixmap>(item->data(Qt::UserRole));
-    QString id = qVariantValue<QString>(item->data(Qt::UserRole + 1));
+
+    QPixmap pixmap = qVariantValue < QPixmap >(item->data(Qt::UserRole));
+    QString id = qVariantValue < QString >(item->data(Qt::UserRole + 1));
 
     dataStream << pixmap << id;
 
@@ -65,7 +46,7 @@ void QSpritesListWidget::startDrag(Qt::DropActions supportedActions)
     drag->setPixmap(pixmap);
 
     if (drag->exec(Qt::MoveAction) == Qt::MoveAction)
-        delete takeItem(row(item));
+        delete item;
 }
 
 void QSpritesListWidget::dragEnterEvent(QDragEnterEvent *event)
@@ -97,7 +78,7 @@ void QSpritesListWidget::dropEvent(QDropEvent *event)
         QString id;
         dataStream >> pixmap >> id;
 
-        addSprite(pixmap, id);
+        addItem(pixmap, id);
 
         event->setDropAction(Qt::MoveAction);
         event->accept();
@@ -110,21 +91,25 @@ void QSpritesListWidget::contextMenuEvent(QContextMenuEvent *event)
 {
     if (selectedItems().empty())
         return;
+
     QMenu menu(this);
     QAction* action = menu.addAction("delete");
-    connect(action, SIGNAL(triggered()), this, SLOT(eraseActiveItem()));
+    connect(action, SIGNAL(triggered()), this, SLOT(eraseActiveItems()));
     menu.exec(event->globalPos());
 }
 
-void QSpritesListWidget::changeIconsSize(int size)
-{
-    iconsSize = size;
-    setIconSize(QSize(iconsSize, iconsSize));
-}
-
-void QSpritesListWidget::eraseActiveItem()
+void QSpritesListWidget::eraseActiveItems()
 {
     QList < QListWidgetItem* > items = selectedItems();
     for (int i = 0; i < items.size(); i++)
-        delete takeItem(row(items[i]));
+        delete items[i];
 }
+
+QVector<QListWidgetItem *> QSpritesListWidget::items() const
+{
+    QVector < QListWidgetItem* > result;
+    for (int i = 0; i < count(); i++)
+        result.push_back(item(i));
+    return result;
+}
+

@@ -23,49 +23,6 @@ class MainWindow : public QMainWindow
 public:
     explicit MainWindow(QWidget *parent = 0);
     ~MainWindow();
-    
-private slots:
-    void on_radioButton2048_toggled(bool checked);
-    void on_radioButton1024_toggled(bool checked);
-    void on_radioButton512_toggled(bool checked);
-    void on_radioButtonCustom_toggled(bool checked);
-
-    void on_lineEditWidth_editingFinished();
-    void on_lineEditHeight_editingFinished();
-
-    void on_spinBoxMargin_valueChanged(int arg1);
-    void on_spinBoxSnap_valueChanged(int arg1);
-
-    void on_actionAdd_sprites_triggered();
-
-    void on_actionMove_item_up_triggered();
-    void on_actionMove_item_down_triggered();
-    void on_actionMove_item_left_triggered();
-    void on_actionMove_item_right_triggered();
-
-    void on_actionDelete_active_item_triggered();
-
-    void on_tabWidget_currentChanged(int index);
-
-    void on_tabWidget_tabCloseRequested(int index);
-
-    void on_actionSave_atlas_triggered();
-
-    void on_toolButtonAddTab_released();
-
-    void on_pushButtonBruteForce_released();
-
-    void on_pushButton_2_released();
-
-    void on_toolButtonClearAtlas_released();
-
-    void on_pushButtonGA_released();
-
-    void on_toolButtonClearList_released();
-
-    void on_pushButtonAnnealing_released();
-
-    void on_pushButtonPackBest_released();
 
 private:
     Ui::MainWindow *ui;
@@ -73,18 +30,43 @@ private:
     QVector < QScene* > scenes;
     QVector < QGraphicsView* > views;
 
-    QScene* scene;
+    QScene* currScene;
 
     void updateScene();
     void packSprites(Packing2D::PackingFunction algo);
-    void getResult(QVector<QRectF> &rects, QVector<QRectF> &conts, Packing2D::CompareFunction cmp, Packing2D::Comparator comp,
-                   Packing2D::PackingFunction algo, QVector < QPair < bool,QPointF > >& res, double& efficiency);
+    void getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing2D::CompareFunction cmp, Packing2D::Comparator comp,
+                   Packing2D::PackingFunction algo, QVector < QPair < bool,QPoint > >& res, double& efficiency);
 
 protected:
     void keyReleaseEvent(QKeyEvent *e);
 
 public slots:
-    void efficiencyChanged(double e);
+    void onEfficiencyChanged(double e);
+private slots:
+    void on_actionAddSprites_triggered();
+    void on_actionSaveAtlas_triggered();
+    void on_actionDeleteActiveItem_triggered();
+    void on_actionMoveItemUp_triggered();
+    void on_actionMoveItemDown_triggered();
+    void on_actionMoveItemLeft_triggered();
+    void on_actionMoveItemRight_triggered();
+    void on_actionAddFolder_triggered();
+    void on_spinBoxMargin_valueChanged(int arg1);
+    void on_spinBoxSnap_valueChanged(int arg1);
+    void on_radioButton2048_toggled(bool checked);
+    void on_radioButton1024_toggled(bool checked);
+    void on_radioButton512_toggled(bool checked);
+    void on_radioButtonCustom_toggled(bool checked);
+    void on_pushButtonPackBestWay_released();
+    void on_pushButtonBruteForce_released();
+    void on_pushButtonGA_released();
+    void on_toolButtonNewTab_released();
+    void on_toolButtonClearList_released();
+    void on_lineEditWidth_editingFinished();
+    void on_lineEditHeight_editingFinished();
+    void on_tabWidgetMainScene_currentChanged(int index);
+    void on_tabWidgetMainScene_tabCloseRequested(int index);
+    void on_pushButtonGenerateSprites_released();
 };
 
 #endif // MAINWINDOW_H

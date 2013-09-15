@@ -2,32 +2,31 @@
 #define QGRAPHICSSPRITEITEM_H
 
 #include <QGraphicsItem>
-#include <QPixmap>
 #include <QPainter>
-#include <QGraphicsScene>
+#include <QPixmap>
 #include <QString>
 
 class QGraphicsSpriteItem : public QGraphicsItem
 {
 public:
-    QGraphicsSpriteItem(const QPixmap& pix, QString id, QGraphicsItem* atlasBound);
+    QGraphicsSpriteItem(const QPixmap& pix, QString id);
     
     QRectF boundingRect() const;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
 
-    void setBoundingRectColor(QColor color);
-
-    static void setMargin(int m);
     static int getMargin();
+    QPixmap    getPixmap() const;
+    QString    getId() const;
+
+    void setBoundingRectColor(QColor color);
+    static void setMargin(int m);
     static void setSnapRadius(int radius);
 
-    QPixmap getPixmap() const;
+    bool hasFocus() const;
+    bool isOnMouse() const;
 
-    bool isActiveItem() const;
     void changeItemActivity(bool activity);
-    bool isPressed() const;
-    void snapIt();
-    QString getId() const;
+    void snap();
 
 protected:
     void mouseMoveEvent(QGraphicsSceneMouseEvent *event);
@@ -35,14 +34,14 @@ protected:
     void mouseReleaseEvent(QGraphicsSceneMouseEvent *event);
 
 private:
-    QPixmap pix;
-    QColor boundColor;
     static int margin;
     static int snapRadius;
-    bool isMoving;
-    QGraphicsItem* atlasBound;
-    bool itemActivity;
-    QString ID;
+
+    QPixmap        pixmap;
+    QString        id;
+    QColor         boundColor;
+    bool           isPressed;
+    bool           isActive;
 };
 
 #endif // QGRAPHICSSPRITEITEM_H

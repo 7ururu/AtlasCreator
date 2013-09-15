@@ -1,29 +1,29 @@
 #include "qgraphicsspriteitem.h"
-#include <QGraphicsSceneMouseEvent>
+#include "qscene.h"
 
 int QGraphicsSpriteItem::snapRadius = 0;
 int QGraphicsSpriteItem::margin = 0;
 
-QGraphicsSpriteItem::QGraphicsSpriteItem(const QPixmap& pix, QString id, QGraphicsItem *atlasBound) :
-    pix(pix), ID(id), atlasBound(atlasBound)
+QGraphicsSpriteItem::QGraphicsSpriteItem(const QPixmap& pix, QString id) :
+    pixmap(pix), id(id)
 {
     setFlag(ItemIsMovable);
     boundColor = Qt::green;
-    isMoving = false;
-    itemActivity = false;
+    isPressed = false;
+    isActive = false;
 }
 
 QRectF QGraphicsSpriteItem::boundingRect() const
 {
-    return QRectF(0, 0, pix.width() + margin * 2, pix.height() + margin * 2);
+    return QRectF(0, 0, pixmap.width() + margin * 2, pixmap.height() + margin * 2);
 }
 
 void QGraphicsSpriteItem::paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget)
 {
-    setPos((int)pos().x(), (int)pos().y());
-    painter->drawPixmap(QRect(margin, margin, pix.width(), pix.height()), pix);
+    setPos((int)x(), (int)y());
+    painter->drawPixmap(QRect(margin, margin, pixmap.width(), pixmap.height()), pixmap);
     painter->setPen(QPen(boundColor));
-    if (itemActivity)
+    if (hasFocus())
         painter->fillRect(boundingRect(), QBrush(QColor(0, 0, 0, 64), Qt::Dense2Pattern));
     painter->drawRect(boundingRect());
 }
@@ -50,27 +50,27 @@ void QGraphicsSpriteItem::setSnapRadius(int radius)
 
 QPixmap QGraphicsSpriteItem::getPixmap() const
 {
-    return pix;
+    return pixmap;
 }
 
-bool QGraphicsSpriteItem::isActiveItem() const
+bool QGraphicsSpriteItem::hasFocus() const
 {
-    return itemActivity;
+    return isActive;
 }
 
 void QGraphicsSpriteItem::changeItemActivity(bool activity)
 {
-    itemActivity = activity;
+    isActive = activity;
 }
 
-bool QGraphicsSpriteItem::isPressed() const
+bool QGraphicsSpriteItem::isOnMouse() const
 {
-    return isMoving;
+    return isPressed;
 }
 
-void QGraphicsSpriteItem::snapIt()
+void QGraphicsSpriteItem::snap()
 {
-    QList < QGraphicsItem* > items = scene()->items();
+    QList < QGraphicsItem* > items = ((QScene*)scene())->items();
     QGraphicsItem* hor = 0,
                  * ver = 0;
     int horDist = 1e9, horType = 0,
@@ -130,39 +130,29 @@ void QGraphicsSpriteItem::snapIt()
         if (verType == 3)
             setPos(ver->x() + ver->boundingRect().width(), y());
     }
-
-    /*if (x() < atlasBound->x())
-        setX(atlasBound->x());
-    if (x() + boundingRect().width() > atlasBound->x() + atlasBound->boundingRect().width())
-        setX(atlasBound->x() + atlasBound->boundingRect().width() - boundingRect().width());
-
-    if (y() < atlasBound->y())
-        setY(atlasBound->y());
-    if (y() + boundingRect().height() > atlasBound->y() + atlasBound->boundingRect().height())
-        setY(atlasBound->y() + atlasBound->boundingRect().height() - boundingRect().height());*/
 }
 
 QString QGraphicsSpriteItem::getId() const
 {
-    return ID;
+    return id;
 }
 
 void QGraphicsSpriteItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)
 {
     QGraphicsItem::mouseMoveEvent(event);
-    if (!isMoving)
+    if (!isPressed)
         return;
-    snapIt();
+    snap();
 }
 
 void QGraphicsSpriteItem::mousePressEvent(QGraphicsSceneMouseEvent *event)
 {
-    isMoving = true;
+    isPressed = true;
     QGraphicsItem::mousePressEvent(event);
 }
 
 void QGraphicsSpriteItem::mouseReleaseEvent(QGraphicsSceneMouseEvent *event)
 {
-    isMoving = false;
+    isPressed = false;
     QGraphicsItem::mouseReleaseEvent(event);
 }

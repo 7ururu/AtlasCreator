@@ -3,7 +3,6 @@
 
 #include <QListWidget>
 #include <QVector>
-#include "qgraphicsspriteitem.h"
 
 class QSpritesListWidget : public QListWidget
 {
@@ -11,8 +10,8 @@ class QSpritesListWidget : public QListWidget
 public:
     QSpritesListWidget(QWidget* parent = 0);
 
-    void addSprite(QPixmap pixmap, QString id);
-    QVector < QListWidgetItem* > getItems() const;
+    void addItem(QPixmap pixmap, QString id);
+    QVector < QListWidgetItem* > items() const;
 
 protected:
     void startDrag(Qt::DropActions supportedActions);
@@ -23,11 +22,11 @@ protected:
     void contextMenuEvent(QContextMenuEvent *event);
 
 private:
-    int iconsSize;
+    static const int ICONS_SIZE = 16;
+    static const int ICONS_INDENT = 4;
 
-public slots:
-    void changeIconsSize(int size);
-    void eraseActiveItem();
+private slots:
+    void eraseActiveItems();
 };
 
 #endif // QSPRITESLISTWIDGET_H
