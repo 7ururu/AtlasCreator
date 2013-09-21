@@ -34,8 +34,10 @@ private:
 
     void updateScene();
     void packSprites(Packing2D::PackingFunction algo);
-    void getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing2D::CompareFunction cmp, Packing2D::Comparator comp,
-                   Packing2D::PackingFunction algo, QVector < QPair < bool,QPoint > >& res, double& efficiency);
+    void packSpritesBestWay();
+    void getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing2D::RectsCompareFunction rectsCmp, Packing2D::ContsComparator contsComp,
+                   Packing2D::PackingFunction algo, QVector < QPoint >& res, double& efficiency);
+    bool shouldContinuePacking();
 
 protected:
     void keyReleaseEvent(QKeyEvent *e);
@@ -67,6 +69,7 @@ private slots:
     void on_tabWidgetMainScene_currentChanged(int index);
     void on_tabWidgetMainScene_tabCloseRequested(int index);
     void on_pushButtonGenerateSprites_released();
+    void on_toolButtonClearScene_released();
 };
 
 #endif // MAINWINDOW_H

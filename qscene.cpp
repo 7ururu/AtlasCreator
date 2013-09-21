@@ -8,10 +8,11 @@
 #include <fstream>
 #include <QMap>
 #include "packingalgorithms.h"
+#include <QApplication>
 
 QScene::QScene(QObject *parent) : QGraphicsScene(parent)
 {
-    setBackgroundBrush(QBrush(QColor(96, 96, 96), Qt::Dense2Pattern));
+    setBackgroundBrush(QBrush(QColor(196, 196, 196), Qt::Dense2Pattern));
 
     atlasBound = addRect(0, 0, 1024, 1024);
 
@@ -126,8 +127,14 @@ void QScene::updateIntersections()
 
 void QScene::updateItemsActivity()
 {
+    bool isSomeoneOnMouse = false;
     for (int i = 0; i < spriteItems.size(); i++)
-        spriteItems[i]->changeItemActivity(spriteItems[i]->hasFocus());
+        isSomeoneOnMouse |= spriteItems[i]->isOnMouse();
+    if (isSomeoneOnMouse)
+    {
+        for (int i = 0; i < spriteItems.size(); i++)
+            spriteItems[i]->changeItemActivity(spriteItems[i]->isOnMouse());
+    }
     update();
 }
 
@@ -147,42 +154,37 @@ void QScene::changeActiveSpritePosition(int dx, int dy)
         }
 }
 
-void QScene::save()
+void QScene::save(const QString &path) const
 {
-    /*static QString fileName;
-    fileName = QFileDialog::getSaveFileName(0, "Choose file to save", fileName, tr("Image Files (*.png *.jpg *.bmp)"));
-    if (fileName.size() == 0)
-        return;
-    QString atlasName = QFileInfo(fileName).baseName();
+    QFile formatFile(QApplication::applicationDirPath() + "/config.txt");
+    formatFile.open(QFile::ReadOnly);
+    QString format(formatFile.readAll());
+    QString atlasName = QFileInfo(path).baseName();
 
     QPixmap resultImage(atlasBound->boundingRect().width(), atlasBound->boundingRect().height());
-    std::ofstream resultFile((QFileInfo(fileName).absolutePath() + QString("/" + atlasName + ".txt")).toStdString().c_str());
+    std::ofstream resultFile((QFileInfo(path).absolutePath() + QString("/" + atlasName + ".txt")).toStdString().c_str());
 
     resultImage.fill(QColor(255, 255, 255, 0));
     QPainter painter(&resultImage);
     painter.setRenderHint(QPainter::HighQualityAntialiasing);
 
-    for (int i = 0; i < sprites.size(); i++)
+    for (int i = 0; i < spriteItems.size(); i++)
     {
-        painter.drawPixmap(sprites[i]->x(), sprites[i]->y(), sprites[i]->getPixmap());
-        resultFile << sprites[i]->getId().toStdString() << " = Sprite(" << atlasName.toStdString() << ", CIwFVec2(" <<
-                      sprites[i]->x() << ", " <<  sprites[i]->y() << "), CIwFVec2(" <<
-                      sprites[i]->getPixmap().width() << ", " << sprites[i]->getPixmap().height() << "));" << std::endl;
-        if (sprites[i]->getId().toStdString().find("[") == std::string::npos)
-        {
-            resultFile << "spriteFromString[\"" << sprites[i]->getId().toStdString() << "\"] = " <<
-                          sprites[i]->getId().toStdString() << ";" << std::endl;
-        }
-    }
-    resultFile << std::endl << std::endl;
-    for (int i = 0; i < sprites.size(); i++)
-        if (sprites[i]->getId().toStdString().find("[") == std::string::npos)
-        {
-            resultFile << sprites[i]->getId().toStdString() << "," << std::endl;
-        }
+        painter.drawPixmap(spriteItems[i]->x(), spriteItems[i]->y(), spriteItems[i]->getPixmap());
 
-    resultImage.save(fileName);
-    resultFile.close();*/
+        QString s = format;
+        s.replace("%ID%", spriteItems[i]->getId());
+        s.replace("%ATLAS_NAME%", atlasName);
+        s.replace("%X%", QString::number(spriteItems[i]->x()));
+        s.replace("%Y%", QString::number(spriteItems[i]->y()));
+        s.replace("%WIDTH%", QString::number(spriteItems[i]->getPixmap().width()));
+        s.replace("%HEIGHT%", QString::number(spriteItems[i]->getPixmap().height()));
+
+        resultFile << s.toStdString() << std::endl;
+    }
+
+    resultImage.save(path);
+    resultFile.close();
 }
 
 void QScene::eraseActiveItem()
@@ -196,6 +198,16 @@ void QScene::eraseActiveItem()
             break;
         }
     update();
+}
+
+void QScene::clear()
+{
+    for (int i = 0; i < spriteItems.size(); i++)
+    {
+        removeItem(spriteItems[i]);
+        delete spriteItems[i];
+    }
+    spriteItems.clear();
 }
 
 void QScene::calculateEfficiency()

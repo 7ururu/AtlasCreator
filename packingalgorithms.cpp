@@ -2,51 +2,65 @@
 #include <cmath>
 #include <set>
 
-Packing2D::Comparator Packing2D::ComparatorType::comp = 0;
+Packing2D::ContsComparator Packing2D::ContainersComparator::comp = 0;
 
-bool Packing2D::compareByArea(const QPair < QRect,int >& a, const QPair < QRect,int >& b)
+bool Packing2D::rectsCompareByArea(const QRect& a, const QRect& b)
 {
-    return a.first.width() * a.first.height() > b.first.width() * b.first.height();
+    return a.width() * a.height() > b.width() * b.height();
 }
 
-bool Packing2D::compareByHeight(const QPair < QRect,int >& a, const QPair < QRect,int >& b)
+bool Packing2D::rectsCompareByHeight(const QRect& a, const QRect& b)
 {
-    return a.first.height() > b.first.height();
+    return a.height() > b.height();
 }
 
-bool Packing2D::compareByWidth(const QPair < QRect,int >& a, const QPair < QRect,int >& b)
+bool Packing2D::rectsCompareByWidth(const QRect& a, const QRect& b)
 {
-    return a.first.width() > b.first.width();
+    return a.width() > b.width();
 }
 
+bool Packing2D::rectsCompareByMaxSide(const QRect& a, const QRect& b)
+{
+    return std::max(a.width(), a.height()) > std::max(b.width(), b.height());
+}
 
-bool Packing2D::comparatorMoveLeft(const QRect& a, const QRect& b)
+bool Packing2D::contsComparatorMoveLeft(const QRect& a, const QRect& b)
 {
     if (a.topLeft().x() != b.topLeft().x())
         return a.topLeft().x() > b.topLeft().x();
     return a.topLeft().y() > b.topLeft().y();
 }
 
-bool Packing2D::comparatorMoveUp(const QRect& a, const QRect& b)
+bool Packing2D::contsComparatorMoveUp(const QRect& a, const QRect& b)
 {
     if (a.topLeft().y() != b.topLeft().y())
         return a.topLeft().y() > b.topLeft().y();
     return a.topLeft().x() > b.topLeft().x();
 }
 
-bool Packing2D::comparatorByArea(const QRect& a, const QRect& b)
+bool Packing2D::contsComparatorByArea(const QRect& a, const QRect& b)
 {
     return a.width() * a.height() > b.width() * b.height();
 }
 
-bool Packing2D::comparatorByHeight(const QRect& a, const QRect& b)
+bool Packing2D::contsComparatorByHeight(const QRect& a, const QRect& b)
 {
     return a.height() > b.height();
 }
 
-bool Packing2D::comparatorByWidth(const QRect& a, const QRect& b)
+bool Packing2D::contsComparatorByWidth(const QRect& a, const QRect& b)
 {
     return a.width() > b.width();
+}
+
+bool Packing2D::contsComparatorByMaxSide(const QRect& a, const QRect& b)
+{
+    return std::max(a.width(), a.height()) > std::max(b.width(), b.height());
+}
+
+bool Packing2D::ContainersComparator::operator()(const QRect &a, const QRect &b)
+{
+    return comp(a, b);
 }
 
 double Packing2D::calculateEfficiency(const QVector<QRect> &rects, QRect container, bool smart)
@@ -62,63 +76,58 @@ double Packing2D::calculateEfficiency(const QVector<QRect> &rects, QRect contain
     }
 
     //sweap line to find items area
-
-    //false - segment start,
-    //true  - segment end
+    const bool START = false,
+               END   = true;
     QMap < int, QVector < QPair < QPair < int,bool >,bool > > > events;
     for (int i = 0; i < rects.size(); i++)
     {
-        events[rects[i].top()].push_back(qMakePair(qMakePair(rects[i].left(), false), false));
-        events[rects[i].top()].push_back(qMakePair(qMakePair(rects[i].right(), true), false));
+        events[rects[i].y()].push_back(qMakePair(qMakePair(rects[i].x(), START), START));
+        events[rects[i].y()].push_back(qMakePair(qMakePair(rects[i].x() + rects[i].width(), END), START));
 
-        events[rects[i].bottom()].push_back(qMakePair(qMakePair(rects[i].left(), false), true));
-        events[rects[i].bottom()].push_back(qMakePair(qMakePair(rects[i].right(), true), true));
+        events[rects[i].y() + rects[i].height()].push_back(qMakePair(qMakePair(rects[i].x(), START), END));
+        events[rects[i].y() + rects[i].height()].push_back(qMakePair(qMakePair(rects[i].x() + rects[i].width(), END), END));
     }
 
     QVector < QPair < int,bool > > curr;
-    double lastY = -1.0;
+    int lastY = 0;
     for (QMap < int, QVector < QPair < QPair < int,bool >,bool > > > :: iterator it = events.begin(); it != events.end(); it++)
     {
         qSort(curr);
 
-        int opened = 0;
-        int L;
-        int length = 0;
+        int openedRects = 0;
+        int firstStart = 0;
+        int totalLength = 0;
         for (int i = 0; i < curr.size(); i++)
         {
-            int j = i;
-            while (j < curr.size() && curr[i].first == curr[j].first)
+            if (curr[i].second == START)
             {
-                if (!curr[j].second)
-                {
-                    if (!opened)
-                        L = curr[j].first;
-                    opened++;
-                }
-                else
-                    opened--;
-                j++;
+                if (openedRects == 0)
+                    firstStart = curr[i].first;
+                openedRects++;
             }
-            if (!opened)
-                length += curr[i].first - L;
-            i = j - 1;
+            else if (curr[i].second == END)
+            {
+                openedRects--;
+                if (openedRects == 0)
+                    totalLength += curr[i].first - firstStart;
+            }
         }
 
-        if (lastY != -1.0)
-            itemsArea += length * (it.key() - lastY);
-
+        if (it != events.begin())
+            itemsArea += totalLength * (it.key() - lastY);
         lastY = it.key();
+
         QVector < QPair < QPair < int,bool >,bool > >& v = it.value();
 
         for (int i = 0; i < v.size(); i++)
-            if (!v[i].second)
+            if (v[i].second == START)
                 curr.push_back(v[i].first);
-            else
+            else if (v[i].second == END)
             {
                 for (int j = 0; j < curr.size(); j++)
                     if (curr[j] == v[i].first)
                     {
-                        curr.remove(j, 1);
+                        curr.erase(&curr[j]);
                         break;
                     }
             }
@@ -128,55 +137,48 @@ double Packing2D::calculateEfficiency(const QVector<QRect> &rects, QRect contain
 }
 
 
-QVector < QPair < bool,QPoint > > Packing2D::_bruteForcePacking(QVector<QRect> &rects, QVector<QRect> &containers, bool useMask,
-                                                                 QVector < bool >& mask, CompareFunction cmp, Comparator comp)
+void Packing2D::_bruteForcePacking(QVector < QRect >& rects, QVector < QRect >& containers, bool useMask, QVector < bool >& mask,
+                                   Packing2D::RectsCompareFunction rectsCmp, Packing2D::ContsComparator contsComp, bool shouldSort,
+                                   QVector < QPoint >& res)
 {
-    QVector < QPair < bool,QPoint > > res(rects.size());
-    for (int i = 0; i < res.size(); i++)
-        res[i].first = false;
+    if (shouldSort)
+        std::sort(rects.begin(), rects.end(), rectsCmp);
 
-    QVector < QPair < QRect,int > > r;
     for (int i = 0; i < rects.size(); i++)
-        r.push_back(qMakePair(rects[i], i));
+        res[i] = Packing2D::NULL_POINT;
 
-    std::sort(r.begin(), r.end(), cmp);
-
-    Packing2D::ComparatorType::comp = comp;
-    std::priority_queue < QRect,std::vector < QRect >,Packing2D::ComparatorType > conts;
-
+    Packing2D::ContainersComparator::comp = contsComp;
+    std::priority_queue < QRect,std::vector < QRect >,Packing2D::ContainersComparator > conts;
     for (int i = 0; i < containers.size(); i++)
         conts.push(containers[i]);
 
     std::set < int > indexes;
     for (int i = 0; i < rects.size(); i++)
         indexes.insert(i);
-
     QVector < int > added;
 
-    int step = 0;
     while (!conts.empty())
     {
         QRect cont = conts.top();
         conts.pop();
 
         int move = -1;
-        if (comp == Packing2D::comparatorMoveLeft)  move = 0;
-        if (comp == Packing2D::comparatorMoveUp)    move = 1;
+        if (contsComp == Packing2D::contsComparatorMoveLeft)  move = 0;
+        if (contsComp == Packing2D::contsComparatorMoveUp)    move = 1;
         if (move != -1)
         {
             int dx[] = { -1, 0 };
             int dy[] = { 0, -1 };
-            int k = move;
-            int L = 0, R = 128;
+
+            int L = 0, R = 64;
             while (L < R)
             {
                 int m = (L + R + 1) / 2;
-                bool good = cont.x() + m * dx[k] >= 0 && cont.y() + m * dy[k] >= 0;
+                bool good = cont.x() + m * dx[move] >= 0 && cont.y() + m * dy[move] >= 0;
                 for (int j = 0; j < added.size(); j++)
                 {
-                    if (res[r[added[j]].second].first &&
-                        QRect(res[r[added[j]].second].second, r[added[j]].first.size()).intersects(
-                        QRect(cont.x() + m * dx[k], cont.y() + m * dy[k], cont.width() - m * dx[k], cont.height() - m * dy[k])))
+                    if (QRect(res[added[j]], rects[added[j]].size()).intersects(
+                        QRect(cont.x() + m * dx[move], cont.y() + m * dy[move], cont.width() - m * dx[move], cont.height() - m * dy[move])))
                     {
                         good = false;
                         break;
@@ -187,104 +189,107 @@ QVector < QPair < bool,QPoint > > Packing2D::_bruteForcePacking(QVector<QRect> &
                 else
                     L = m;
             }
-            cont.setX(cont.x() + L * dx[k]);
-            cont.setY(cont.y() + L * dy[k]);
+            cont.setX(cont.x() + L * dx[move]);
+            cont.setY(cont.y() + L * dy[move]);
         }
 
-        //for (int i = 0; i < r.size(); i++)
         for (std::set < int > :: iterator it = indexes.begin(); it != indexes.end(); it++)
         {
             int i = *it;
-            if (!res[r[i].second].first && r[i].first.width() <= cont.width() && r[i].first.height() <= cont.height())
+            if (rects[i].width() <= cont.width() && rects[i].height() <= cont.height())
             {
-                res[r[i].second].first = true;
-                res[r[i].second].second = cont.topLeft();
+                res[i] = cont.topLeft();
                 added.push_back(i);
 
-                QRect f1 = QRect(cont.topLeft() + QPoint(0, r[i].first.height()), QSize(cont.width(), cont.height() - r[i].first.height())),
-                       f2 = QRect(cont.topLeft() + QPoint(r[i].first.width(), 0), QSize(cont.width() - r[i].first.width(), r[i].first.height()));
-                QRect s1 = QRect(cont.topLeft() + QPoint(0, r[i].first.height()), QSize(r[i].first.width(), cont.height() - r[i].first.height())),
-                       s2 = QRect(cont.topLeft() + QPoint(r[i].first.width(), 0), QSize(cont.width() - r[i].first.width(), cont.height()));
+                QRect f1 = QRect(cont.topLeft() + QPoint(0, rects[i].height()), QSize(cont.width(), cont.height() - rects[i].height())),
+                      f2 = QRect(cont.topLeft() + QPoint(rects[i].width(), 0), QSize(cont.width() - rects[i].width(), rects[i].height()));
+                QRect s1 = QRect(cont.topLeft() + QPoint(0, rects[i].height()), QSize(rects[i].width(), cont.height() - rects[i].height())),
+                      s2 = QRect(cont.topLeft() + QPoint(rects[i].width(), 0), QSize(cont.width() - rects[i].width(), cont.height()));
 
                 QRect f = f1, s = s1;
-                if (comp(f2, f1))      f = f2;
-                if (comp(s2, s1))      s = s2;
+                if (contsComp(f2, f1))      f = f2;
+                if (contsComp(s2, s1))      s = s2;
 
-                if ((useMask && mask[step]) ||
-                    (!useMask && comp(f, s)))
+                if ((useMask && mask[i]) || (!useMask && contsComp(f, s)))
                     conts.push(f1), conts.push(f2);
                 else
                     conts.push(s1), conts.push(s2);
 
-                step++;
                 indexes.erase(it);
                 break;
             }
         }
     }
-    return res;
 }
 
-QVector < QPair < bool,QPoint > > Packing2D::bruteForcePacking(QVector < QRect > &rects, QVector < QRect >& containers, QRect mainContainer,
-                                                                CompareFunction cmp, Comparator comp)
+QVector < QPoint > Packing2D::bruteForcePacking(QVector < QRect >& rects, QVector < QRect >& containers, QRect mainContainer,
+                                                Packing2D::RectsCompareFunction rectsCmp, Packing2D::ContsComparator contsComp)
 {
+    QVector < QPoint > result(rects.size());
     QVector < bool > mask;
-    return _bruteForcePacking(rects, containers, false, mask, cmp, comp);
+    _bruteForcePacking(rects, containers, false, mask, rectsCmp, contsComp, true, result);
+    return result;
 }
 
-QVector < QPair < bool,QPoint > > Packing2D::stupidGAPacking(QVector < QRect > &rects, QVector < QRect >& containers, QRect mainContainer,
-                                                              CompareFunction cmp, Comparator comp)
+QVector < QPoint > Packing2D::stupidGAPacking(QVector < QRect >& rects, QVector < QRect >& containers, QRect mainContainer,
+                                              Packing2D::RectsCompareFunction rectsCmp, Packing2D::ContsComparator contsComp)
 {
-    const int N = 50;
-    const int NGENERATIONS = 50;
+    const int NGENS = 30;
+    const int NGENERATIONS = 30;
 
-    QVector < bool > gen[2 * N];
-    double e[N * 2];
+    QVector < bool > gen[2 * NGENS];
+    double e[NGENS * 2];
 
-    for (int i = 0; i < 2 * N; i++)
+    for (int i = 0; i < 2 * NGENS; i++)
     {
         gen[i].resize(rects.size());
         for (int j = 0; j < gen[i].size(); j++)
             gen[i][j] = rand() % 2;
     }
 
-    QVector < QPair < bool,QPoint > > res;
+    std::sort(rects.begin(), rects.end(), rectsCmp);
+
+    QVector < QPoint > result;
+    QVector < QPoint > tmpResult(rects.size());
+    QVector < QRect > effRects(rects.size());
     double bestEfficiency = -1.0;
 
     for (int k = 0; k < NGENERATIONS; k++)
     {
-        int n = N;
-        for (int i = 0; i < N; i++)
+        int currGen = NGENS;
+        for (int i = 0; i < NGENS; i++)
         {
-            int j = rand() % N;
+            int j = rand() % NGENS;
             int p = rand() % rects.size();
-            for (int t = 0; t < gen[n].size(); t++)
-                gen[n][t] = t <= p ? gen[i][t] : gen[j][t];
-
-            if ((rand() % N) % (N / 5) == 0)
-                gen[n][rand() % gen[n].size()] ^= 1;
-
-            QVector < QPair < bool,QPoint > > tmp = _bruteForcePacking(rects, containers, true, gen[n], cmp, comp);
-            QVector < QRect > r;
-            for (int j = 0; j < rects.size(); j++)
-                if (tmp[j].first)
-                    r.push_back(QRect(tmp[j].second, rects[j].size()));
-
-            e[n] = calculateEfficiency(r, mainContainer, false);
-
-            if (e[n] > bestEfficiency)
+            for (int t = 0; t < gen[currGen].size(); t++)
             {
-                bestEfficiency = e[n];
-                res = tmp;
+                gen[currGen][t] = t <= p ? gen[i][t] : gen[j][t];
+                if (rand() % (NGENS * 2) == NGENS - 1)
+                    gen[currGen][t] ^= 1;
             }
 
-            n++;
+            _bruteForcePacking(rects, containers, true, gen[currGen], rectsCmp, contsComp, false, tmpResult);
+            for (int j = 0; j < rects.size(); j++)
+                if (tmpResult[j] == Packing2D::NULL_POINT)
+                    effRects[j] = QRect(0, 0, 0, 0);
+                else
+                    effRects[j] = QRect(tmpResult[j], rects[j].size());
+
+            e[currGen] = calculateEfficiency(effRects, mainContainer, false);
+
+            if (e[currGen] > bestEfficiency)
+            {
+                bestEfficiency = e[currGen];
+                result = tmpResult;
+            }
+
+            currGen++;
         }
 
-        for (int i = 0; i < 2 * N; i++)
+        for (int i = 0; i < 2 * NGENS; i++)
         {
             int t = i;
-            for (int j = i + 1; j < 2 * N; j++)
+            for (int j = i + 1; j < 2 * NGENS; j++)
                 if (e[t] < e[j])
                     t = j;
             std::swap(e[t], e[i]);
@@ -292,10 +297,5 @@ QVector < QPair < bool,QPoint > > Packing2D::stupidGAPacking(QVector < QRect > &
         }
     }
 
-    return res;
-}
-
-bool Packing2D::ComparatorType::operator ()(const QRect &a, const QRect &b)
-{
-    return comp(a, b);
+    return result;
 }

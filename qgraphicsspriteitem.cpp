@@ -70,7 +70,7 @@ bool QGraphicsSpriteItem::isOnMouse() const
 
 void QGraphicsSpriteItem::snap()
 {
-    QList < QGraphicsItem* > items = ((QScene*)scene())->items();
+    QVector < QGraphicsSpriteItem* > items = ((QScene*)scene())->items();
     QGraphicsItem* hor = 0,
                  * ver = 0;
     int horDist = 1e9, horType = 0,

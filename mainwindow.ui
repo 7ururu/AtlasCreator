@@ -14,22 +14,7 @@
    <string>AtlasCreator</string>
   </property>
   <property name="styleSheet">
-   <string notr="true">QObject
-{
-background-color:rgb(60, 60, 60);
-color:rgb(255, 255, 255);
-}
-
-QPushButton:hover
-{
-	background-color:rgb(160, 160, 160);
-}
-
-QLineEdit
-{
-	border:1px solid white;
-}
-</string>
+   <string notr="true"/>
   </property>
   <widget class="QWidget" name="centralWidget">
    <layout class="QHBoxLayout" name="horizontalLayout_2">
@@ -145,7 +130,7 @@ QLineEdit
            <item row="1" column="0" colspan="3">
             <widget class="QRadioButton" name="radioButtonCustom">
              <property name="enabled">
-              <bool>false</bool>
+              <bool>true</bool>
              </property>
              <property name="text">
               <string>Custom</string>
@@ -218,6 +203,11 @@ QLineEdit
              <item>
               <property name="text">
                <string>Area</string>
+              </property>
+             </item>
+             <item>
+              <property name="text">
+               <string>Max side</string>
               </property>
              </item>
              <item>
@@ -383,7 +373,7 @@ QLineEdit
     </item>
     <item>
      <layout class="QGridLayout" name="gridLayout">
-      <item row="1" column="0" colspan="2">
+      <item row="1" column="0" colspan="3">
        <widget class="QSpritesListWidget" name="spritesListWidget">
         <property name="sizePolicy">
          <sizepolicy hsizetype="Preferred" vsizetype="Expanding">
@@ -392,14 +382,7 @@ QLineEdit
          </sizepolicy>
         </property>
         <property name="styleSheet">
-         <string notr="true">QListView 
-{
-	background-color: rgba(96, 96, 96, 255);
-}
-QListWidget::item
-{
- 	border: 1px solid black;
-}</string>
+         <string notr="true"/>
         </property>
         <property name="tabKeyNavigation">
          <bool>false</bool>
@@ -444,6 +427,13 @@ QListWidget::item
         </property>
        </widget>
       </item>
+      <item row="0" column="2">
+       <widget class="QToolButton" name="toolButtonClearScene">
+        <property name="text">
+         <string>Clear scene</string>
+        </property>
+       </widget>
+      </item>
      </layout>
     </item>
    </layout>
@@ -482,40 +472,64 @@ QListWidget::item
    <property name="text">
     <string>Add sprites</string>
    </property>
+   <property name="shortcut">
+    <string>Ctrl+A</string>
+   </property>
   </action>
   <action name="actionSaveAtlas">
    <property name="text">
     <string>Save atlas</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+S</string>
    </property>
   </action>
   <action name="actionDeleteActiveItem">
    <property name="text">
     <string>Delete active item</string>
    </property>
+   <property name="shortcut">
+    <string>Del</string>
+   </property>
   </action>
   <action name="actionMoveItemUp">
    <property name="text">
     <string>Move item up</string>
+   </property>
+   <property name="shortcut">
+    <string>Up</string>
    </property>
   </action>
   <action name="actionMoveItemDown">
    <property name="text">
     <string>Move item down</string>
    </property>
+   <property name="shortcut">
+    <string>Down</string>
+   </property>
   </action>
   <action name="actionMoveItemLeft">
    <property name="text">
     <string>Move item left</string>
+   </property>
+   <property name="shortcut">
+    <string>Left</string>
    </property>
   </action>
   <action name="actionMoveItemRight">
    <property name="text">
     <string>Move item right</string>
    </property>
+   <property name="shortcut">
+    <string>Right</string>
+   </property>
   </action>
   <action name="actionAddFolder">
    <property name="text">
     <string>Add folder</string>
+   </property>
+   <property name="shortcut">
+    <string>Ctrl+F</string>
    </property>
   </action>
  </widget>

@@ -20,8 +20,9 @@ public:
 
     void changeAtlasSize(int w, int h);
     void changeActiveSpritePosition(int dx, int dy);
-    void save();
+    void save(const QString& path) const;
     void eraseActiveItem();
+    void clear();
 
 protected:
     void dragEnterEvent(QGraphicsSceneDragDropEvent *event);

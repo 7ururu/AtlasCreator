@@ -1,0 +1,1 @@
+%ID% = Sprite(%ATLAS_NAME%, CIwFVec2(%X%, %Y%), CIwFVec2(%WIDTH%, %HEIGHT%);

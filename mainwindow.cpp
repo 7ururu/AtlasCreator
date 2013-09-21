@@ -6,6 +6,7 @@
 #include <QPair>
 #include "packingalgorithms.h"
 #include <ctime>
+#include <QDir>
 #include "qgraphicsspriteitem.h"
 
 MainWindow::MainWindow(QWidget *parent) :
@@ -130,9 +131,9 @@ void MainWindow::updateScene()
     if (ui->tabWidgetMainScene->count() == 0)
         return;
 
-    currScene = (QScene*)((QGraphicsView*)ui->tabWidgetMainScene->currentWidget())->scene();
     if (currScene && ui->tabWidgetMainScene->count() > 1)
         disconnect(currScene, SIGNAL(efficiencyChanged(double)), this, SLOT(onEfficiencyChanged(double)));
+    currScene = (QScene*)((QGraphicsView*)ui->tabWidgetMainScene->currentWidget())->scene();
     connect(currScene, SIGNAL(efficiencyChanged(double)), this, SLOT(onEfficiencyChanged(double)));
 
     QRectF r = ((QGraphicsView*)ui->tabWidgetMainScene->currentWidget())->sceneRect();
@@ -148,14 +149,18 @@ void MainWindow::updateScene()
     else
     {
         ui->radioButtonCustom->setChecked(true);
-        ui->lineEditWidth->setText(QString::number(r.width() - 1));
-        ui->lineEditHeight->setText(QString::number(r.height() - 1));
+        ui->lineEditWidth->setText(QString::number(r.width()));
+        ui->lineEditHeight->setText(QString::number(r.height()));
     }
+
+    ui->tabWidgetMainScene->currentWidget()->setFocus();
 }
 
 void MainWindow::packSprites(Packing2D::PackingFunction algo)
 {
     QVector < QListWidgetItem* > items = ui->spritesListWidget->items();
+    if (items.empty())
+        return;
     QVector < QRect > rects;
     for (int i = 0; i < items.size(); i++)
     {
@@ -167,61 +172,164 @@ void MainWindow::packSprites(Packing2D::PackingFunction algo)
 
     QVector < QRect > conts = currScene->getFreeSpace();
 
-    Packing2D::CompareFunction cmp = Packing2D::compareByArea;
-    Packing2D::Comparator comp = Packing2D::comparatorByArea;
+    Packing2D::RectsCompareFunction rectsCmp = Packing2D::rectsCompareByArea;
+    Packing2D::ContsComparator contsComp = Packing2D::contsComparatorByArea;
     if (ui->comboBoxSortBy->currentText() == "Height")
-        cmp = Packing2D::compareByHeight, comp = Packing2D::comparatorByHeight;
+        rectsCmp = Packing2D::rectsCompareByHeight, contsComp = Packing2D::contsComparatorByHeight;
     else if (ui->comboBoxSortBy->currentText() == "Width")
-        cmp = Packing2D::compareByWidth, comp = Packing2D::comparatorByHeight;
+        rectsCmp = Packing2D::rectsCompareByWidth, contsComp = Packing2D::contsComparatorByHeight;
+    else if (ui->comboBoxSortBy->currentText() == "Max side")
+        rectsCmp = Packing2D::rectsCompareByMaxSide, contsComp = Packing2D::contsComparatorByMaxSide;
 
     if (ui->radioButtonMoveLeft->isChecked())
-        comp = Packing2D::comparatorMoveLeft;
+        contsComp = Packing2D::contsComparatorMoveLeft;
     if (ui->radioButtonMoveUp->isChecked())
-        comp = Packing2D::comparatorMoveUp;
+        contsComp = Packing2D::contsComparatorMoveUp;
 
-    QVector < QPair < bool,QPoint > > res = algo(rects, conts, currScene->getAtlasBoundRect(), cmp, comp);
+    QVector < QPoint > res = algo(rects, conts, currScene->getAtlasBoundRect(), rectsCmp, contsComp);
 
-    for (int i = 0; i < res.size(); i++)
-        if (res[i].first)
+    for (int i = 0; i < rects.size(); i++)
+    {
+        for (int j = i; j < rects.size(); j++)
+        {
+            QPixmap pixmap = qVariantValue<QPixmap>(items[j]->data(Qt::UserRole));
+            if (rects[i].size() == pixmap.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
+            {
+                qSwap(items[i], items[j]);
+                break;
+            }
+        }
+    }
+    for (int i = 0; i < rects.size(); i++)
+        if (res[i] != Packing2D::NULL_POINT)
         {
             currScene->addSprite(qVariantValue<QPixmap>(items[i]->data(Qt::UserRole)),
                                  qVariantValue<QString>(items[i]->data(Qt::UserRole + 1)),
-                                 res[i].second);
+                                 res[i]);
             delete items[i];
         }
 }
 
+void MainWindow::packSpritesBestWay()
+{
+    QVector < QListWidgetItem* > items = ui->spritesListWidget->items();
+    if (items.empty())
+        return;
+
+    time_t currTime = time(0);
+    ui->progressBarPackingProgress->setEnabled(true);
+    ui->progressBarPackingProgress->setValue(0);
+    ui->progressBarPackingProgress->update();
+
+    QVector < QRect > rects;
+    for (int i = 0; i < items.size(); i++)
+    {
+        QPixmap pixmap = qVariantValue<QPixmap>(items[i]->data(Qt::UserRole));
+
+        rects.push_back(QRect(0, 0, pixmap.width() + QGraphicsSpriteItem::getMargin() * 2,
+                                     pixmap.height() + QGraphicsSpriteItem::getMargin() * 2));
+    }
+
+    QVector < QRect > conts = currScene->getFreeSpace();
+
+    const int nCmp = 4;
+    Packing2D::RectsCompareFunction cmpFunction[nCmp] = { Packing2D::rectsCompareByArea,
+                                                          Packing2D::rectsCompareByMaxSide,
+                                                          Packing2D::rectsCompareByHeight,
+                                                          Packing2D::rectsCompareByWidth };
+    const int nFunctions = 1;
+    Packing2D::PackingFunction algo[nFunctions] = { Packing2D::stupidGAPacking };
+    const int nComps = 6;
+    Packing2D::ContsComparator comp[nComps] = { Packing2D::contsComparatorByArea,
+                                                Packing2D::contsComparatorByMaxSide,
+                                                Packing2D::contsComparatorByHeight,
+                                                Packing2D::contsComparatorByWidth,
+                                                Packing2D::contsComparatorMoveLeft,
+                                                Packing2D::contsComparatorMoveUp};
+    const int nTimes = 1;
+
+    ui->progressBarPackingProgress->setRange(0, nCmp * nFunctions * nComps * nTimes);
+    ui->progressBarPackingProgress->update();
+
+    QVector < QPoint > resPoints;
+    QVector < QRect > resRects;
+    QVector< QPoint > tmp;
+    double bestEfficiency = -1.0;
+
+    for (int t = 0; t < nTimes; t++)
+        for (int cmp = 0; cmp < nCmp; cmp++)
+            for (int c = 0; c < nComps; c++)
+                for (int f = 0; f < nFunctions; f++)
+                {
+                    double e;
+                    getResult(rects, conts, cmpFunction[cmp], comp[c], algo[f], tmp, e);
+                    if (e > bestEfficiency)
+                        bestEfficiency = e, resPoints = tmp, resRects = rects;
+                    ui->progressBarPackingProgress->setValue(ui->progressBarPackingProgress->value() + 1);
+                    ui->progressBarPackingProgress->update();
+                    QCoreApplication::processEvents();
+                }
+
+    qDebug("%f", bestEfficiency);
+
+    for (int i = 0; i < rects.size(); i++)
+    {
+        for (int j = i; j < rects.size(); j++)
+        {
+            QPixmap pixmap = qVariantValue<QPixmap>(items[j]->data(Qt::UserRole));
+            if (resRects[i].size() == pixmap.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
+            {
+                qSwap(items[i], items[j]);
+                break;
+            }
+        }
+    }
+    for (int i = 0; i < rects.size(); i++)
+        if (resPoints[i] != Packing2D::NULL_POINT)
+        {
+            currScene->addSprite(qVariantValue<QPixmap>(items[i]->data(Qt::UserRole)),
+                                 qVariantValue<QString>(items[i]->data(Qt::UserRole + 1)),
+                                 resPoints[i]);
+            delete items[i];
+        }
+
+    ui->progressBarPackingProgress->setValue(0);
+    ui->progressBarPackingProgress->setEnabled(false);
+    ui->progressBarPackingProgress->update();
+
+    qDebug("%i", time(0) - currTime);
+}
+
 void MainWindow::keyReleaseEvent(QKeyEvent *e)
 {
-   /* if (e->key() == Qt::Key_Tab && e->modifiers() == Qt::ControlModifier && ui->tabWidget->currentWidget() != focusWidget())
+    if (e->key() == Qt::Key_Tab && e->modifiers() == Qt::ControlModifier && ui->tabWidgetMainScene->currentWidget() != focusWidget())
     {
-        int index = ui->tabWidget->currentIndex() + 1;
-        if (index == ui->tabWidget->count())
+        int index = ui->tabWidgetMainScene->currentIndex() + 1;
+        if (index == ui->tabWidgetMainScene->count())
             index = 0;
-        ui->tabWidget->setCurrentIndex(index);
+        ui->tabWidgetMainScene->setCurrentIndex(index);
     }
     else if (e->key() == Qt::Key_T && e->modifiers() == Qt::ControlModifier)
     {
-        on_toolButtonAddTab_released();
+        on_toolButtonNewTab_released();
     }
     else if (e->key() == Qt::Key_C && e->modifiers() == (Qt::ControlModifier | Qt::ShiftModifier))
     {
-        on_toolButtonClearAtlas_released();
-    }*/
+        on_toolButtonClearScene_released();
+    }
 }
 
 void MainWindow::onEfficiencyChanged(double e)
 {
-    ui->labelEfficiency->setText("<b>Efficiency = " + QString::number(e, 'f', 2) + "%</b>");
+    ui->labelEfficiency->setText("<b>Efficiency = " + QString::number(e, 'f', 3) + "%</b>");
 
-    QPixmap pix(ui->labelEfficiency->width(), ui->labelEfficiency->width());
+    QPixmap pix(128, 128);
     QPainter painter(&pix);
-    painter.fillRect(0, 0, pix.width(), pix.height(), Qt::white);
+    painter.fillRect(0, 0, pix.width(), pix.height(), Qt::gray);
     painter.setRenderHint(QPainter::Antialiasing);
     currScene->render(&painter);
     ui->labelMiniMap->setPixmap(pix);
 }
-
 
 void MainWindow::on_tabWidgetMainScene_tabCloseRequested(int index)
 {
@@ -241,7 +349,12 @@ void MainWindow::on_tabWidgetMainScene_tabCloseRequested(int index)
 
 void MainWindow::on_actionSaveAtlas_triggered()
 {
-    currScene->save();
+    static QString fileName;
+    QString temp = QFileDialog::getSaveFileName(this, tr("Save atlas"), QFileInfo(fileName).absolutePath());
+    if (temp.isEmpty())
+        return;
+    fileName = temp;
+    currScene->save(fileName);
 }
 
 void MainWindow::on_toolButtonNewTab_released()
@@ -251,7 +364,11 @@ void MainWindow::on_toolButtonNewTab_released()
 
     views.back()->setScene(scenes.back());
     views.back()->centerOn(0, 0);
-    scenes.back()->changeAtlasSize(1024, 1024);
+
+    if (scenes.size() > 1)
+        scenes.back()->changeAtlasSize(currScene->getAtlasBoundRect().width(), currScene->getAtlasBoundRect().height());
+    else
+        scenes.back()->changeAtlasSize(1024, 1024);
 
     ui->tabWidgetMainScene->insertTab(ui->tabWidgetMainScene->count(), views.back(), "Atlas " + QString::number(ui->tabWidgetMainScene->count()));
     ui->tabWidgetMainScene->setCurrentIndex(ui->tabWidgetMainScene->count() - 1);
@@ -259,7 +376,8 @@ void MainWindow::on_toolButtonNewTab_released()
 
 void MainWindow::on_pushButtonGenerateSprites_released()
 {
-    int Min = 16, Max = 200;
+    const int Min = 16,
+              Max = 200;
     for (int i = 0; i < 100; i++)
     {
         QPixmap pix(rand() % (Max - Min + 1) + Min, rand() % (Max - Min + 1) + Min);
@@ -276,91 +394,86 @@ void MainWindow::on_toolButtonClearList_released()
 
 void MainWindow::on_pushButtonBruteForce_released()
 {
-    packSprites(Packing2D::bruteForcePacking);
+    do packSprites(Packing2D::bruteForcePacking); while (shouldContinuePacking());
 }
 
 void MainWindow::on_pushButtonGA_released()
 {
-    packSprites(Packing2D::stupidGAPacking);
+    do packSprites(Packing2D::stupidGAPacking); while (shouldContinuePacking());
 }
 
 void MainWindow::on_pushButtonPackBestWay_released()
 {
-    time_t currTime = time(0);
-    ui->progressBarPackingProgress->setEnabled(true);
-    ui->progressBarPackingProgress->setValue(0);
-    ui->progressBarPackingProgress->update();
-
-    QVector < QListWidgetItem* > items = ui->spritesListWidget->items();
-    QVector < QRect > rects;
-    for (int i = 0; i < items.size(); i++)
-    {
-        QPixmap pixmap = qVariantValue<QPixmap>(items[i]->data(Qt::UserRole));
-
-        rects.push_back(QRect(0, 0, pixmap.width() + QGraphicsSpriteItem::getMargin() * 2,
-                                     pixmap.height() + QGraphicsSpriteItem::getMargin() * 2));
-    }
-
-    QVector < QRect > conts = currScene->getFreeSpace();
-
-    const int nCmp = 3;
-    Packing2D::CompareFunction cmpFunction[nCmp] = { Packing2D::compareByArea, Packing2D::compareByHeight, Packing2D::compareByWidth };
-    const int nFunctions = 1;
-    Packing2D::PackingFunction algo[nFunctions] = { Packing2D::stupidGAPacking };
-    const int nComps = 3;
-    Packing2D::Comparator comp[nComps] = { Packing2D::comparatorByArea, Packing2D::comparatorByHeight, Packing2D::comparatorByWidth,
-                                           /*Packing2D::comparatorMoveLeft, Packing2D::comparatorMoveUp*/ };
-    const int nTimes = 1;
-
-    ui->progressBarPackingProgress->setRange(0, nCmp * nFunctions * nComps * nTimes);
-    ui->progressBarPackingProgress->update();
-
-    QVector<QPair<bool, QPoint> > res;
-    double bestEfficiency = -1.0;
-
-    for (int t = 0; t < nTimes; t++)
-        for (int cmp = 0; cmp < nCmp; cmp++)
-            for (int c = 0; c < nComps; c++)
-                for (int f = 0; f < nFunctions; f++)
-                {
-                    double e;
-                    QVector<QPair<bool, QPoint> > tmp;
-                    getResult(rects, conts, cmpFunction[cmp], comp[c], algo[f], tmp, e);
-                    if (e > bestEfficiency)
-                        bestEfficiency = e, res = tmp;
-                    ui->progressBarPackingProgress->setValue(ui->progressBarPackingProgress->value() + 1);
-                    ui->progressBarPackingProgress->update();
-                    QCoreApplication::processEvents();
-                }
-
-    for (int i = 0; i < res.size(); i++)
-        if (res[i].first)
-        {
-            currScene->addSprite(qVariantValue<QPixmap>(items[i]->data(Qt::UserRole)),
-                                 qVariantValue<QString>(items[i]->data(Qt::UserRole + 1)),
-                                 res[i].second);
-            delete items[i];
-        }
-
-    ui->progressBarPackingProgress->setValue(0);
-    ui->progressBarPackingProgress->setEnabled(false);
-    ui->progressBarPackingProgress->update();
-
-    qDebug("%i", time(0) - currTime);
+    do packSpritesBestWay(); while (shouldContinuePacking());
 }
 
-void MainWindow::getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing2D::CompareFunction cmp,
-                           Packing2D::Comparator comp, Packing2D::PackingFunction algo, QVector<QPair<bool, QPoint> > &res, double &efficiency)
+void MainWindow::getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing2D::RectsCompareFunction rectsCmp, Packing2D::ContsComparator contsComp,
+                           Packing2D::PackingFunction algo, QVector < QPoint >& res, double& efficiency)
 {
-    res = algo(rects, conts, currScene->getAtlasBoundRect(), cmp, comp);
+    res = algo(rects, conts, currScene->getAtlasBoundRect(), rectsCmp, contsComp);
     QVector < QRect > r;
-    for (int i = 0; i < res.size(); i++)
-        if (res[i].first)
-            r.push_back(QRect(res[i].second, rects[i].size()));
+    for (int i = 0; i < rects.size(); i++)
+        if (res[i] != Packing2D::NULL_POINT)
+            r.push_back(QRect(res[i], rects[i].size()));
     efficiency = Packing2D::calculateEfficiency(r, currScene->getAtlasBoundRect(), false);
+}
+
+bool MainWindow::shouldContinuePacking()
+{
+    static int prevItemsSize = 0;
+    if (ui->checkBoxApplyToAll->isChecked() && ui->spritesListWidget->items().size() != prevItemsSize &&
+        ui->spritesListWidget->items().size() > 0)
+    {
+        prevItemsSize = ui->spritesListWidget->items().size();
+        on_toolButtonNewTab_released();
+        return true;
+    }
+    else
+    {
+        prevItemsSize = ui->spritesListWidget->items().size();
+        return false;
+    }
 }
 
 void MainWindow::on_actionAddFolder_triggered()
 {
+    static QString folderName;
+    QString temp = QFileDialog::getExistingDirectory(this, tr("Add folder"), QFileInfo(folderName).absolutePath());
+    if (temp.isEmpty())
+        return;
+    folderName = temp;
+    QVector < QString > folders;
+    folders.push_back(folderName);
+    while (!folders.isEmpty())
+    {
+        qDebug(folders.back().toStdString().c_str());
+        QFileInfoList files = QDir(folders.back()).entryInfoList();
+        folders.pop_back();
+        for (int i = 0; i < files.size(); i++)
+            if (files[i].isFile())
+            {
+                QFileInfo file = files[i];
+                if (file.suffix() == "png" || file.suffix() == "jpg" || file.suffix() == "bmp")
+                {
+                    QString id = file.baseName();
+                    QPixmap pixmap = QPixmap(file.filePath());
+                    ui->spritesListWidget->addItem(pixmap, id);
+                }
+            }
+            else if (files[i].isDir() && files[i].fileName() != ".." && files[i].fileName() != ".")
+            {
+                QString folder = files[i].absoluteFilePath();
+                folder.replace("/", "\\");
+                folders.push_back(folder);
+            }
 
+    }
+}
+
+void MainWindow::on_toolButtonClearScene_released()
+{
+    QVector < QGraphicsSpriteItem* > items = currScene->items();
+    for (int i = 0; i < items.size(); i++)
+        ui->spritesListWidget->addItem(items[i]->getPixmap(), items[i]->getId());
+    currScene->clear();
 }
