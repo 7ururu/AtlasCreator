@@ -10,7 +10,7 @@ class QSpritesListWidget : public QListWidget
 public:
     QSpritesListWidget(QWidget* parent = 0);
 
-    void addItem(QPixmap pixmap, QString id);
+    void addItem(QImage img, QString id);
     QVector < QListWidgetItem* > items() const;
 
 protected:

@@ -17,11 +17,11 @@ QSpritesListWidget::QSpritesListWidget(QWidget *parent) : QListWidget(parent)
     setContextMenuPolicy(Qt::DefaultContextMenu);
 }
 
-void QSpritesListWidget::addItem(QPixmap pixmap, QString id)
+void QSpritesListWidget::addItem(QImage img, QString id)
 {
     QListWidgetItem *sprite = new QListWidgetItem(this);
-    sprite->setIcon(QIcon(pixmap));
-    sprite->setData(Qt::UserRole, QVariant(pixmap));
+    sprite->setIcon(QIcon(QPixmap::fromImage(img)));
+    sprite->setData(Qt::UserRole, QVariant(img));
     sprite->setData(Qt::UserRole + 1, QVariant(id));
     sprite->setFlags(Qt::ItemIsEnabled | Qt::ItemIsSelectable | Qt::ItemIsDragEnabled);
 }
@@ -32,18 +32,18 @@ void QSpritesListWidget::startDrag(Qt::DropActions supportedActions)
     QByteArray itemData;
     QDataStream dataStream(&itemData, QIODevice::WriteOnly);
 
-    QPixmap pixmap = qVariantValue < QPixmap >(item->data(Qt::UserRole));
+    QImage img = qVariantValue < QImage >(item->data(Qt::UserRole));
     QString id = qVariantValue < QString >(item->data(Qt::UserRole + 1));
 
-    dataStream << pixmap << id;
+    dataStream << img << id;
 
     QMimeData *mimeData = new QMimeData;
     mimeData->setData("/sprite", itemData);
 
     QDrag *drag = new QDrag(this);
     drag->setMimeData(mimeData);
-    drag->setHotSpot(QPoint(pixmap.width() / 2, pixmap.height() / 2));
-    drag->setPixmap(pixmap);
+    drag->setHotSpot(QPoint(img.width() / 2, img.height() / 2));
+    drag->setPixmap(QPixmap::fromImage(img));
 
     if (drag->exec(Qt::MoveAction) == Qt::MoveAction)
         delete item;
@@ -74,11 +74,11 @@ void QSpritesListWidget::dropEvent(QDropEvent *event)
     {
         QByteArray itemData = event->mimeData()->data("/sprite");
         QDataStream dataStream(&itemData, QIODevice::ReadOnly);
-        QPixmap pixmap;
+        QImage img;
         QString id;
-        dataStream >> pixmap >> id;
+        dataStream >> img >> id;
 
-        addItem(pixmap, id);
+        addItem(img, id);
 
         event->setDropAction(Qt::MoveAction);
         event->accept();

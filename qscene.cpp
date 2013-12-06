@@ -25,9 +25,9 @@ QScene::~QScene()
         delete spriteItems[i];
 }
 
-void QScene::addSprite(QPixmap pixmap, QString id, QPointF pos)
+void QScene::addSprite(QImage img, QString id, QPointF pos)
 {
-    QGraphicsSpriteItem* sprite = new QGraphicsSpriteItem(pixmap, id);
+    QGraphicsSpriteItem* sprite = new QGraphicsSpriteItem(img, id);
     sprite->setPos(pos);
     addItem(sprite);
     spriteItems.push_back(sprite);
@@ -87,11 +87,11 @@ void QScene::dropEvent(QGraphicsSceneDragDropEvent *event)
         QByteArray spriteData = event->mimeData()->data("/sprite");
         QDataStream dataStream(&spriteData, QIODevice::ReadOnly);
 
-        QPixmap pixmap;
+        QImage img;
         QString id;
-        dataStream >> pixmap >> id;
+        dataStream >> img >> id;
 
-        addSprite(pixmap, id, QPointF(event->scenePos().x() - pixmap.width() / 2, event->scenePos().y() - pixmap.height() / 2));
+        addSprite(img, id, QPointF(event->scenePos().x() - img.width() / 2, event->scenePos().y() - img.height() / 2));
 
         for (int i = 0; i < spriteItems.size(); i++)
             spriteItems[i]->changeItemActivity(i == (spriteItems.size() - 1));
@@ -154,37 +154,50 @@ void QScene::changeActiveSpritePosition(int dx, int dy)
         }
 }
 
-void QScene::save(const QString &path) const
+void QScene::savePixmap(const QString &path) const
 {
-    QFile formatFile(QApplication::applicationDirPath() + "/config.txt");
-    formatFile.open(QFile::ReadOnly);
-    QString format(formatFile.readAll());
-    QString atlasName = QFileInfo(path).baseName();
+    QImage resultImage(atlasBound->boundingRect().width(), atlasBound->boundingRect().height(), QImage::Format_ARGB32);
 
-    QPixmap resultImage(atlasBound->boundingRect().width(), atlasBound->boundingRect().height());
-    std::ofstream resultFile((QFileInfo(path).absolutePath() + QString("/" + atlasName + ".txt")).toStdString().c_str());
+    resultImage.fill(0x00ffffff);
 
-    resultImage.fill(QColor(255, 255, 255, 0));
-    QPainter painter(&resultImage);
-    painter.setRenderHint(QPainter::HighQualityAntialiasing);
-
-    for (int i = 0; i < spriteItems.size(); i++)
+    int m = QGraphicsSpriteItem::getMargin();
+    for (int k = 0; k < spriteItems.size(); k++)
     {
-        painter.drawPixmap(spriteItems[i]->x(), spriteItems[i]->y(), spriteItems[i]->getPixmap());
-
-        QString s = format;
-        s.replace("%ID%", spriteItems[i]->getId());
-        s.replace("%ATLAS_NAME%", atlasName);
-        s.replace("%X%", QString::number(spriteItems[i]->x()));
-        s.replace("%Y%", QString::number(spriteItems[i]->y()));
-        s.replace("%WIDTH%", QString::number(spriteItems[i]->getPixmap().width()));
-        s.replace("%HEIGHT%", QString::number(spriteItems[i]->getPixmap().height()));
-
-        resultFile << s.toStdString() << std::endl;
+        QImage img = spriteItems[k]->getImage().convertToFormat(QImage::Format_ARGB32);
+        for (int i = 0; i < img.width(); i++)
+            for (int j = 0; j < img.height(); j++)
+                resultImage.setPixel(spriteItems[k]->x() + m + i, spriteItems[k]->y() + m + j, img.pixel(i, j));
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < img.height(); j++)
+            {
+                resultImage.setPixel(spriteItems[k]->x() + i, spriteItems[k]->y() + m + j,
+                                     img.pixel(0, j) & 0x00ffffff);
+                resultImage.setPixel(spriteItems[k]->x() + i + m + img.width(), spriteItems[k]->y() + m + j,
+                                     img.pixel(img.width() - 1, j) & 0x00ffffff);
+            }
+        for (int j = 0; j < m; j++)
+            for (int i = 0; i < img.width(); i++)
+            {
+                resultImage.setPixel(spriteItems[k]->x() + m + i, spriteItems[k]->y() + j,
+                                     img.pixel(i, 0) & 0x00ffffff);
+                resultImage.setPixel(spriteItems[k]->x() + m + i, spriteItems[k]->y() + j + m + img.height(),
+                                     img.pixel(i, img.height() - 1) & 0x00ffffff);
+            }
+        for (int i = 0; i < m; i++)
+            for (int j = 0; j < m; j++)
+            {
+                resultImage.setPixel(spriteItems[k]->x() + i, spriteItems[k]->y() + j,
+                                     img.pixel(0, 0) & 0x00ffffff);
+                resultImage.setPixel(spriteItems[k]->x() + img.width() + m + i, spriteItems[k]->y() + j,
+                                     img.pixel(img.width() - 1, 0) & 0x00ffffff);
+                resultImage.setPixel(spriteItems[k]->x() + i, spriteItems[k]->y() + img.height() + m + j,
+                                     img.pixel(0, img.height() - 1) & 0x00ffffff);
+                resultImage.setPixel(spriteItems[k]->x() + img.width() + m + i, spriteItems[k]->y() + img.height() + m + j,
+                                     img.pixel(img.width() - 1, img.height() - 1) & 0x00ffffff);
+            }
     }
 
     resultImage.save(path);
-    resultFile.close();
 }
 
 void QScene::eraseActiveItem()
@@ -225,4 +238,44 @@ void QScene::onItemsChange()
     updateIntersections();
     updateItemsActivity();
     calculateEfficiency();
+}
+
+void QScene::saveData(std::ofstream &out, const QString& atlasName) const
+{
+    QFile formatFile(QApplication::applicationDirPath() + "/config.txt");
+    formatFile.open(QFile::ReadOnly);
+    QString format(formatFile.readAll());
+
+    for (int i = 0; i < spriteItems.size(); i++)
+    {
+        QString s = format;
+        s.replace("%ID%", spriteItems[i]->getId());
+        s.replace("%ATLAS_NAME%", atlasName);
+        s.replace("%X%", QString::number(spriteItems[i]->x() + QGraphicsSpriteItem::getMargin()));
+        s.replace("%Y%", QString::number(spriteItems[i]->y() + QGraphicsSpriteItem::getMargin()));
+        s.replace("%WIDTH%", QString::number(spriteItems[i]->getPixmap().width()));
+        s.replace("%HEIGHT%", QString::number(spriteItems[i]->getPixmap().height()));
+
+        out << s.toStdString() << std::endl;
+
+        /*if (spriteItems[i]->getId().toStdString().find("[") == std::string::npos)
+        {
+            out << "spriteFromString[\"" << spriteItems[i]->getId().toStdString() << "\"] = " <<
+                   spriteItems[i]->getId().toStdString() << ";" << std::endl;
+        }*/
+    }
+
+    out << std::endl << std::endl;
+}
+
+void QScene::saveExtraData(std::ofstream &out) const
+{
+    for (int i = 0; i < spriteItems.size(); i++)
+    {
+        if (spriteItems[i]->getId().toStdString().find("[") == std::string::npos)
+        {
+            out << spriteItems[i]->getId().toStdString() << "," << std::endl;
+        }
+    }
+    out << std::endl << std::endl;
 }

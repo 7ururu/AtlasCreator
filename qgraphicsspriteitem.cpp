@@ -4,8 +4,8 @@
 int QGraphicsSpriteItem::snapRadius = 0;
 int QGraphicsSpriteItem::margin = 0;
 
-QGraphicsSpriteItem::QGraphicsSpriteItem(const QPixmap& pix, QString id) :
-    pixmap(pix), id(id)
+QGraphicsSpriteItem::QGraphicsSpriteItem(const QImage &img, QString id) :
+    image(img), pixmap(QPixmap::fromImage(img)), id(id)
 {
     setFlag(ItemIsMovable);
     boundColor = Qt::green;
@@ -22,10 +22,12 @@ void QGraphicsSpriteItem::paint(QPainter *painter, const QStyleOptionGraphicsIte
 {
     setPos((int)x(), (int)y());
     painter->drawPixmap(QRect(margin, margin, pixmap.width(), pixmap.height()), pixmap);
+
     painter->setPen(QPen(boundColor));
     if (hasFocus())
         painter->fillRect(boundingRect(), QBrush(QColor(0, 0, 0, 64), Qt::Dense2Pattern));
-    painter->drawRect(boundingRect());
+    if (boundColor != Qt::green)
+        painter->drawRect(QRectF(boundingRect().topLeft(), boundingRect().size() - QSize(1, 1)));
 }
 
 void QGraphicsSpriteItem::setBoundingRectColor(QColor color)
@@ -135,6 +137,11 @@ void QGraphicsSpriteItem::snap()
 QString QGraphicsSpriteItem::getId() const
 {
     return id;
+}
+
+QImage QGraphicsSpriteItem::getImage() const
+{
+    return image;
 }
 
 void QGraphicsSpriteItem::mouseMoveEvent(QGraphicsSceneMouseEvent *event)

@@ -70,6 +70,7 @@ private slots:
     void on_tabWidgetMainScene_tabCloseRequested(int index);
     void on_pushButtonGenerateSprites_released();
     void on_toolButtonClearScene_released();
+    void on_actionSaveData_triggered();
 };
 
 #endif // MAINWINDOW_H

@@ -4,12 +4,13 @@
 #include <QGraphicsItem>
 #include <QPainter>
 #include <QPixmap>
+#include <QImage>
 #include <QString>
 
 class QGraphicsSpriteItem : public QGraphicsItem
 {
 public:
-    QGraphicsSpriteItem(const QPixmap& pix, QString id);
+    QGraphicsSpriteItem(const QImage& img, QString id);
     
     QRectF boundingRect() const;
     void paint(QPainter *painter, const QStyleOptionGraphicsItem *option, QWidget *widget);
@@ -17,6 +18,7 @@ public:
     static int getMargin();
     QPixmap    getPixmap() const;
     QString    getId() const;
+    QImage     getImage() const;
 
     void setBoundingRectColor(QColor color);
     static void setMargin(int m);
@@ -38,6 +40,7 @@ private:
     static int snapRadius;
 
     QPixmap        pixmap;
+    QImage         image;
     QString        id;
     QColor         boundColor;
     bool           isPressed;

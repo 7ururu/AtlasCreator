@@ -11,7 +11,7 @@ public:
     QScene(QObject *parent = 0);
     ~QScene();
 
-    void addSprite(QPixmap pixmap, QString id, QPointF pos);
+    void addSprite(QImage img, QString id, QPointF pos);
     QGraphicsSpriteItem* getActiveItem() const;
     QVector< QRect > getFreeSpace() const;
     QRect getAtlasBoundRect() const;
@@ -20,7 +20,9 @@ public:
 
     void changeAtlasSize(int w, int h);
     void changeActiveSpritePosition(int dx, int dy);
-    void save(const QString& path) const;
+    void savePixmap(const QString& path) const;
+    void saveData(std::ofstream& out, const QString &atlasName) const;
+    void saveExtraData(std::ofstream& out) const;
     void eraseActiveItem();
     void clear();
 

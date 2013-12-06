@@ -87,8 +87,8 @@ void MainWindow::on_actionAddSprites_triggered()
     for (int i = 0; i < fileNames.size(); i++)
     {
         QString id = QFileInfo(fileNames[i]).baseName();
-        QPixmap pixmap = QPixmap(fileNames[i]);
-        ui->spritesListWidget->addItem(pixmap, id);
+        QImage img = QImage(fileNames[i]);
+        ui->spritesListWidget->addItem(img, id);
     }
 }
 
@@ -117,7 +117,7 @@ void MainWindow::on_actionDeleteActiveItem_triggered()
     QGraphicsSpriteItem* active = currScene->getActiveItem();
     if (!active)
         return;
-    ui->spritesListWidget->addItem(active->getPixmap(), active->getId());
+    ui->spritesListWidget->addItem(active->getImage(), active->getId());
     currScene->eraseActiveItem();
 }
 
@@ -164,10 +164,10 @@ void MainWindow::packSprites(Packing2D::PackingFunction algo)
     QVector < QRect > rects;
     for (int i = 0; i < items.size(); i++)
     {
-        QPixmap pixmap = qVariantValue<QPixmap>(items[i]->data(Qt::UserRole));
+        QImage img = qVariantValue<QImage>(items[i]->data(Qt::UserRole));
 
-        rects.push_back(QRect(0, 0, pixmap.width() + QGraphicsSpriteItem::getMargin() * 2,
-                                     pixmap.height() + QGraphicsSpriteItem::getMargin() * 2));
+        rects.push_back(QRect(0, 0, img.width() + QGraphicsSpriteItem::getMargin() * 2,
+                                    img.height() + QGraphicsSpriteItem::getMargin() * 2));
     }
 
     QVector < QRect > conts = currScene->getFreeSpace();
@@ -192,8 +192,8 @@ void MainWindow::packSprites(Packing2D::PackingFunction algo)
     {
         for (int j = i; j < rects.size(); j++)
         {
-            QPixmap pixmap = qVariantValue<QPixmap>(items[j]->data(Qt::UserRole));
-            if (rects[i].size() == pixmap.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
+            QImage img = qVariantValue<QImage>(items[j]->data(Qt::UserRole));
+            if (rects[i].size() == img.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
             {
                 qSwap(items[i], items[j]);
                 break;
@@ -203,7 +203,7 @@ void MainWindow::packSprites(Packing2D::PackingFunction algo)
     for (int i = 0; i < rects.size(); i++)
         if (res[i] != Packing2D::NULL_POINT)
         {
-            currScene->addSprite(qVariantValue<QPixmap>(items[i]->data(Qt::UserRole)),
+            currScene->addSprite(qVariantValue<QImage>(items[i]->data(Qt::UserRole)),
                                  qVariantValue<QString>(items[i]->data(Qt::UserRole + 1)),
                                  res[i]);
             delete items[i];
@@ -224,10 +224,10 @@ void MainWindow::packSpritesBestWay()
     QVector < QRect > rects;
     for (int i = 0; i < items.size(); i++)
     {
-        QPixmap pixmap = qVariantValue<QPixmap>(items[i]->data(Qt::UserRole));
+        QImage img = qVariantValue<QImage>(items[i]->data(Qt::UserRole));
 
-        rects.push_back(QRect(0, 0, pixmap.width() + QGraphicsSpriteItem::getMargin() * 2,
-                                     pixmap.height() + QGraphicsSpriteItem::getMargin() * 2));
+        rects.push_back(QRect(0, 0, img.width() + QGraphicsSpriteItem::getMargin() * 2,
+                                    img.height() + QGraphicsSpriteItem::getMargin() * 2));
     }
 
     QVector < QRect > conts = currScene->getFreeSpace();
@@ -245,7 +245,7 @@ void MainWindow::packSpritesBestWay()
                                                 Packing2D::contsComparatorByHeight,
                                                 Packing2D::contsComparatorByWidth,
                                                 Packing2D::contsComparatorMoveLeft,
-                                                Packing2D::contsComparatorMoveUp};
+                                                Packing2D::contsComparatorMoveUp };
     const int nTimes = 1;
 
     ui->progressBarPackingProgress->setRange(0, nCmp * nFunctions * nComps * nTimes);
@@ -276,8 +276,8 @@ void MainWindow::packSpritesBestWay()
     {
         for (int j = i; j < rects.size(); j++)
         {
-            QPixmap pixmap = qVariantValue<QPixmap>(items[j]->data(Qt::UserRole));
-            if (resRects[i].size() == pixmap.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
+            QImage img = qVariantValue<QImage>(items[j]->data(Qt::UserRole));
+            if (resRects[i].size() == img.size() + QSize(QGraphicsSpriteItem::getMargin() * 2, QGraphicsSpriteItem::getMargin() * 2))
             {
                 qSwap(items[i], items[j]);
                 break;
@@ -287,7 +287,7 @@ void MainWindow::packSpritesBestWay()
     for (int i = 0; i < rects.size(); i++)
         if (resPoints[i] != Packing2D::NULL_POINT)
         {
-            currScene->addSprite(qVariantValue<QPixmap>(items[i]->data(Qt::UserRole)),
+            currScene->addSprite(qVariantValue<QImage>(items[i]->data(Qt::UserRole)),
                                  qVariantValue<QString>(items[i]->data(Qt::UserRole + 1)),
                                  resPoints[i]);
             delete items[i];
@@ -335,7 +335,7 @@ void MainWindow::on_tabWidgetMainScene_tabCloseRequested(int index)
 {
     QVector < QGraphicsSpriteItem* > items = scenes[index]->items();
     for (int i = 0; i < items.size(); i++)
-        ui->spritesListWidget->addItem(items[i]->getPixmap(), items[i]->getId());
+        ui->spritesListWidget->addItem(items[i]->getImage(), items[i]->getId());
 
     ui->tabWidgetMainScene->removeTab(index);
     delete scenes[index];   scenes.remove(index, 1);
@@ -354,7 +354,7 @@ void MainWindow::on_actionSaveAtlas_triggered()
     if (temp.isEmpty())
         return;
     fileName = temp;
-    currScene->save(fileName);
+    currScene->savePixmap(fileName);
 }
 
 void MainWindow::on_toolButtonNewTab_released()
@@ -420,8 +420,8 @@ void MainWindow::getResult(QVector<QRect> &rects, QVector<QRect> &conts, Packing
 
 bool MainWindow::shouldContinuePacking()
 {
-    static int prevItemsSize = 0;
-    if (ui->checkBoxApplyToAll->isChecked() && ui->spritesListWidget->items().size() != prevItemsSize &&
+    static int prevItemsSize = -1;
+    if (!ui->checkBoxPackToCurrTab->isChecked() && ui->spritesListWidget->items().size() != prevItemsSize &&
         ui->spritesListWidget->items().size() > 0)
     {
         prevItemsSize = ui->spritesListWidget->items().size();
@@ -430,7 +430,9 @@ bool MainWindow::shouldContinuePacking()
     }
     else
     {
-        prevItemsSize = ui->spritesListWidget->items().size();
+        if (prevItemsSize == ui->spritesListWidget->items().size() && ui->tabWidgetMainScene->count() > 1)
+            ui->tabWidgetMainScene->removeTab(ui->tabWidgetMainScene->currentIndex());
+        prevItemsSize = -1;
         return false;
     }
 }
@@ -456,8 +458,8 @@ void MainWindow::on_actionAddFolder_triggered()
                 if (file.suffix() == "png" || file.suffix() == "jpg" || file.suffix() == "bmp")
                 {
                     QString id = file.baseName();
-                    QPixmap pixmap = QPixmap(file.filePath());
-                    ui->spritesListWidget->addItem(pixmap, id);
+                    QImage img = QImage(file.filePath());
+                    ui->spritesListWidget->addItem(img, id);
                 }
             }
             else if (files[i].isDir() && files[i].fileName() != ".." && files[i].fileName() != ".")
@@ -474,6 +476,23 @@ void MainWindow::on_toolButtonClearScene_released()
 {
     QVector < QGraphicsSpriteItem* > items = currScene->items();
     for (int i = 0; i < items.size(); i++)
-        ui->spritesListWidget->addItem(items[i]->getPixmap(), items[i]->getId());
+        ui->spritesListWidget->addItem(items[i]->getImage(), items[i]->getId());
     currScene->clear();
+}
+
+void MainWindow::on_actionSaveData_triggered()
+{
+    static QString fileName;
+    QString temp = QFileDialog::getSaveFileName(this, tr("Save atlas"), QFileInfo(fileName).absolutePath());
+    if (temp.isEmpty())
+        return;
+    fileName = temp;
+    std::ofstream out1(fileName.toStdString().c_str());
+    std::ofstream out2((QFileInfo(fileName).absolutePath() + "/" + QFileInfo(fileName).baseName() + "_." +
+                        QFileInfo(fileName).suffix()).toStdString().c_str());
+    for (int i = 0; i < scenes.size(); i++)
+    {
+        scenes[i]->saveData(out1, "ATLAS[" + QString::number(i + 1) + "]");
+        scenes[i]->saveExtraData(out2);
+    }
 }
